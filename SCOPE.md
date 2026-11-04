@@ -156,7 +156,7 @@ These come from the first planning round (`archive/2026-11-04-first-planning/`) 
 | Path | What |
 |---|---|
 | `SCOPE.md` | this file |
-| `projects/jpact/` | J-PACT: paper PDF (git-ignored), `PAPER.md` guide, `repos/` and `data/` (git-ignored) |
+| `projects/jpact/` | J-PACT: **`SUMMARY.md` (5-minute read; start here)**, `PAPER.md` (full reference guide), `checks/` (scripts behind the guide's numbers), paper PDF, `repos/` and `data/` (git-ignored) |
 | `projects/silent-dissent/` | Silent Dissent: the same layout |
 | `archive/2026-11-04-first-planning/` | earlier plans and notes, kept as leads |
 | `ORCHESTRATOR.md`, `COSTS.md`, `PRIOR-WORK.md` | orchestration rules, cost log, prior-work list |
