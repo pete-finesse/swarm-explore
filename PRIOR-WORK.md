@@ -7,9 +7,11 @@ The sprint report must declare everything listed here.
 - `ORCHESTRATOR.md`: brief for the orchestrator session, Nov 4.
 - Baseline plans, written Nov 4 from reading only (nothing run yet). Each is on its own branch:
   - A: `projects/A/PLAN.md` on `claude/proj-a-c8c53b`
-  - B1: `projects/B1/PLAN.md`: draft, unfinished
+  - B1: `projects/B1/PLAN.md` on `claude/proj-b1-f406e4`
   - B2: `projects/B2/PLAN.md` on `claude/proj-b2-6a5f6b`
   - D: `projects/D/PLAN.md` on `claude/proj-d-19d1e8`
+
+- Plain-language explainers (`projects/<X>/EXPLAINER.md`), Nov 4, on the same branches for A, B2 and D. B1 has none.
 
 ## Runs and code (add here as they happen)
 - none yet
