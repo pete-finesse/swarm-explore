@@ -1,0 +1,30 @@
+# Secrets: never commit
+.env
+.env.*
+!.env.example
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Cloned third-party repos and downloaded data: keep them in these folders
+projects/*/repos/
+projects/*/data/
+hf_cache/
+
+# Model weights, lenses and large artifacts
+*.pt
+*.pth
+*.safetensors
+*.gguf
+*.bin
+*.npy
+*.npz
+*.parquet
+
+# OS and editor clutter
+.DS_Store
+~$*
