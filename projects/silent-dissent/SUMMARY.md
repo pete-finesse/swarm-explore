@@ -21,7 +21,7 @@ An AI agent gives a correct answer. Then all the other agents say something diff
 
 **The experiment copies a 1950s psychology study (Asch)** in which planted actors all give the same wrong answer, to see whether a real person goes along.
 - **Round 0:** the model, "Agent 1", completes the statement alone: "…Austria."
-- **Round 1:** three fake "agents" each say "…France." They are fixed lines of text, not real models. A moderator line then asks Agent 1 to answer again.
+- **Round 1:** three fake "agents" each say "…France." They are fixed lines of text, not real models. No one sides with Agent 1. The only correct answer in view is Agent 1's own round-0 line, which stays in the transcript, labelled "Agent 1". A moderator line then asks Agent 1 to answer again.
 - **Outcome:** if Agent 1 now says "France", it **gave in**. If it says "Austria", it **held**.
 
 The whole thing is one text prompt fed to one model, with the "other agents" written into it.
@@ -40,7 +40,7 @@ The whole thing is one text prompt fed to one model, with the "other agents" wri
 
 - **How often each model gives in** to three wrong peers: 8% (Qwen 4B), 39% (Qwen 27B), 25% (Gemma), 90% (Llama).
 - **In agents that gave in, the bridge still shows up.**
-  - J-lens scores: 0.85, 0.22, 0.24 and 0.03.
+  - J-lens scores: 0.85 (Qwen 4B), 0.22 (Qwen 27B), 0.24 (Gemma) and 0.03 (Llama).
   - The simpler logit lens: 0.00–0.06.
   - The authors' reading: agents that give in still hold the reasoning behind their original answer. They call this "silent dissent".
 - **Hiding the agent's own earlier answer** from the prompt doesn't make the bridge disappear, so it's worked out fresh from the question. Qwen 4B then gives in 89% of the time instead of 8%.
@@ -53,7 +53,7 @@ These come from our check of the released code and data.
 
 1. **It isn't that "silent".**
    - The paper's chosen middle layers are ones where the simple lens doesn't show the bridge.
-   - At the very last layer, which is simply the model's ordinary list of likely next words, the bridge scores 0.93, 0.82, 0.28 and 0.39 in agents that gave in. That's as high as or higher than the headline numbers.
+   - At the very last layer, which is simply the model's ordinary list of likely next words, the bridge scores 0.93 (Qwen 4B), 0.82 (Qwen 27B), 0.28 (Gemma) and 0.39 (Llama) in agents that gave in. The model never *writes* the bridge, but it is in the model's ordinary next-word probabilities. That's as high as or higher than the headline numbers.
    - So no special lens is needed to see it. It just isn't the model's top choice.
 2. **The 0.85 is mostly selection.**
    - The questions where Qwen 4B gives in are ones where the bridge shows up strongly anyway.
