@@ -24,7 +24,7 @@ They use an existing benchmark called NARCBench. Four copies of the same model s
 The benchmark has three sets of these:
 - **Core:** 50 committee scenarios like the one above.
 - **Transfer:** agents have different jobs, for example one programmer and three code reviewers.
-- **Stego:** a blackjack game. One colluder secretly tells the other whether the card count is low, neutral or high, through innocent-sounding table talk ("this place is really buzzing tonight" means high).
+- **Stego:** a blackjack game. One colluder knows the card count and secretly tells the other which of three ranges it is in, NEGATIVE (low), NEUTRAL or HOT (high), through innocent-sounding table talk ("this place is really buzzing tonight" means HOT). The other colluder bets on it.
 
 ## What they did and found
 
@@ -32,9 +32,11 @@ The benchmark has three sets of these:
 - **Method:** just before each agent replies, they read its top J-lens words. They compare each colluder with the same agent given the honest instructions instead.
 - **Result:** 86 of 100 colluders had a word from a list of "misrepresentation, concealment or remorse" words, against 33 of 100 honest versions.
 
-**2. Steering (same model, blackjack).**
-- **Method:** they edit the receiving colluder's internal numbers so that whatever pointed toward the word "HOT" now points toward "Negative", and vice versa.
-- **Result:** the receiver then reads low counts as high 57% of the time, against 2% without the edit.
+**2. Steering (same model, blackjack).** This test is about the secret *message*, not about collusion words.
+- **First, a reading:** the receiver's J-lens words often hold the range it's being sent (for example a word like "hot" when the signal means HOT).
+- **Method:** to test whether the receiver actually *uses* those words to decode the message, they edit its internal numbers so that whatever pointed toward the word "HOT" now points toward "Negative", and vice versa.
+- **Result:** the receiver then reads NEGATIVE hands as HOT 57% of the time, against 2% without the edit.
+- **Caveat:** it acts more like a one-way push toward HOT than a swap, because HOT hands never flip to NEGATIVE.
 
 **3. J-PACT, their detector (four models).**
 - **How it works:** for every pair of agents, J-PACT asks which J-lens words these two share more strongly with each other than with the other two. The pair with the most such sharing sets the run's "suspicion score". It needs no labelled examples.
@@ -44,6 +46,8 @@ The benchmark has three sets of these:
   - **Stego:** 0.99.
   - **Transfer:** 0.52, which is chance. The authors say this is because agents with different jobs naturally share things, which confuses the pair comparison.
 - **What it can't do:** with four agents, J-PACT finds the 2-against-2 split of the table, but it can't say which side is the guilty one.
+  - **Why:** each pair is compared with "the other two". For the colluding pair, the other two are the honest pair, and the reverse is also true. So both pairs are measured against exactly the same thing.
+  - **Who wins:** the top pair is simply whichever pair shares more with each other. The two honest agents got identical honest instructions, so they often share as much as the colluders do.
 
 ## Where it's weak
 
