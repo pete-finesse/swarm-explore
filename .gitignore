@@ -28,3 +28,6 @@ hf_cache/
 # OS and editor clutter
 .DS_Store
 ~$*
+
+# Paper PDFs (local copies; link to arXiv instead of committing)
+projects/*/*.pdf
