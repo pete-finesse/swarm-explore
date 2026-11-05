@@ -1,0 +1,33 @@
+[project]
+name = "sdharness"
+version = "0.1.0"
+description = "Small harness for Silent Dissent-style J-lens experiments (readout, ablate/steer/swap, batch runs)"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "silent-dissent",          # the authors' code (MIT), cloned at ../repos/silent-dissent
+    "torch>=2.4",
+    "transformers>=4.57",
+    "huggingface_hub",
+    "pandas",
+    "pyyaml",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+sdh = "sdharness.cli:main"
+
+[tool.uv.sources]
+silent-dissent = { path = "../repos/silent-dissent", editable = true }
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["sdharness"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
