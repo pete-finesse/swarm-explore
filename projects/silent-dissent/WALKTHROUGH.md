@@ -149,17 +149,36 @@ Llama-3.1-8B gets the same content as a chat instead of a transcript. Its own an
 
 ## What this shows about the measurement
 
-The two "in the prompt?" columns describe the text the model has read *at the moment of measurement*, before it writes its answer. In round 0 the model then goes on to answer "Austria" correctly, but that answer isn't in the prompt yet when the measurement is taken.
+**The scores are not about Salzburg alone.** Each one is an average over many test questions, and each question has its own bridge and control (Salzburg and Tokyo for Mozart, other cities for other questions). The "in the prompt?" columns use Mozart as the example, and describe the text read *before* the model answers.
 
-| Condition | "Salzburg" in the prompt? | "Austria" in the prompt? | Salzburg score (Qwen3.5-4B, J-lens) |
-|---|---|---|---|
-| Round 0, alone | no | no | 0.69 |
-| Agree | no | yes, ×4 | 0.63 |
-| Pressure, **held** | no | yes, ×1 | 0.54 |
-| Pressure, **gave in** | no | yes, ×1 | 0.85 |
-| Hidden, gave in | no | **no** | 0.43 |
-| Absent, gave in | no | **no** | 0.50 |
-| Instructed (practice questions) | no | yes, ×1 | 0.25 |
+**Qwen3.5-4B, J-lens, test questions.** The model passed screening on 718 test questions and got 668 right in round 0. Those 668 go into round 1. A few are dropped because their bridge can't be measured, which is why n is 663 rather than 668.
+
+| Condition | Bridge in the prompt? | Right answer in the prompt? | Questions (n) | Average score |
+|---|---|---|---|---|
+| Round 0, alone | no | no | 663 | 0.69 |
+| Agree | no | yes, ×4 | 663 | 0.63 |
+| Mention | no | yes, ×3 | 660 | 0.62 |
+| Pressure: the ones that **held** | no | yes, ×1 | 609 | 0.54 |
+| Pressure: the ones that **gave in** | no | yes, ×1 | 54 | 0.85 |
+| Hidden: held | no | no | 66 | 0.53 |
+| Hidden: gave in | no | no | 591 | 0.43 |
+| Absent: held | no | no | 253 | 0.50 |
+| Absent: gave in | no | no | 408 | 0.50 |
+| Instructed | no | yes, ×1 | ~350 *practice* questions | 0.25 |
+
+Sources: `docs/results/crossmodel_summary.json` (`cells`, `own.summary.cells`) and the registration file for the practice questions.
+
+**Read the "held" and "gave in" rows with care.** Under pressure, each question either holds or gives in, so those two rows split the same 663 questions into two different groups (609 + 54). Hiding the answer makes far more questions give in (591 instead of 54), so the hidden "gave in" group is a much broader set again.
+
+**The same questions, followed across conditions** (from `docs/results/robust/robust.log`, the paper's same-question comparisons):
+
+| Group of questions | n | Round 0 | Agree | Under pressure |
+|---|---|---|---|---|
+| The 54 that gave in | 54 (only 18 different bridges) | 0.90 | 0.96 | 0.85 |
+| The 609 that held | 609 | 0.68 | 0.60 | 0.54 |
+
+- **Both groups score lower under pressure** than in "agree" on the same questions.
+- **The "gave in" group scores higher only because it started much higher.** Those questions have bridges that show up strongly anyway.
 
 - **The bridge is never written, yet it shows up in every condition.** The one thing every prompt shares is the question, "the city where Mozart was born is in the country of…".
 - **So what the score detects is the model working out the question.** That's why it can't separate an agent that privately disagrees from one that simply read the question.
