@@ -55,6 +55,13 @@ In the paper, each condition changes several things at once: the prompt structur
 
 **Second step, only after the first answer:** apply the same bridge-specific measure (Salzburg minus another Austrian city) to agents that give in vs hold, on the same questions. To get enough cases, use the paper's hidden-answer setup, where Qwen3.5-4B gives in 89% of the time.
 
+## Lessons from playing in Neuronpedia (Qwen3.6-27B, Nov 5)
+
+- **Salzburg shows up across many positions, but not in the short list at the last token ("of") alone.** It was strong at the assistant's start token. Reading only the last position misses where the bridge is computed.
+- **Swaps plant a concept; they don't show the original was used.** Swapping Salzburg → Budapest gives "Hungary". So does swapping Vienna → Budapest, swapping Austria → Budapest, and even a swap at a single early position. A swap inserts Budapest strongly enough that the model reads it as if it were in the prompt.
+- **So "is the bridge used?" needs a removal test:** ablate Salzburg, and as controls ablate Vienna and other non-bridge words, at the same layers and positions. Then compare the drop in the model's confidence in "Austria". Neuronpedia's ablate works on one layer at a time, so its results there are only indicative.
+- **This may also apply to the famous spider → ants demo, and to J-PACT's HOT/Negative swap.** Neither paper rules out planting.
+
 ## Feasibility notes
 
 - **Same-country controls are available.** In TwoHopFact's birth-city category, 2,683 of 2,751 facts are in a country with at least two different bridge cities, and there are 1,077 distinct bridges in total (checked Nov 5).
