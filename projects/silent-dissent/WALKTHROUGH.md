@@ -149,7 +149,9 @@ Llama-3.1-8B gets the same content as a chat instead of a transcript. Its own an
 
 ## What this shows about the measurement
 
-| Condition | "Salzburg" written? | "Austria" written? | Salzburg score (Qwen3.5-4B, J-lens) |
+The two "in the prompt?" columns describe the text the model has read *at the moment of measurement*, before it writes its answer. In round 0 the model then goes on to answer "Austria" correctly, but that answer isn't in the prompt yet when the measurement is taken.
+
+| Condition | "Salzburg" in the prompt? | "Austria" in the prompt? | Salzburg score (Qwen3.5-4B, J-lens) |
 |---|---|---|---|
 | Round 0, alone | no | no | 0.69 |
 | Agree | no | yes, ×4 | 0.63 |
