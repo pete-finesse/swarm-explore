@@ -58,9 +58,13 @@ In the paper, each condition changes several things at once: the prompt structur
 ## Lessons from playing in Neuronpedia (Qwen3.6-27B, Nov 5)
 
 - **Salzburg shows up across many positions, but not in the short list at the last token ("of") alone.** It was strong at the assistant's start token. Reading only the last position misses where the bridge is computed.
-- **Swaps plant a concept; they don't show the original was used.** Swapping Salzburg → Budapest gives "Hungary". So does swapping Vienna → Budapest, swapping Austria → Budapest, and even a swap at a single early position. A swap inserts Budapest strongly enough that the model reads it as if it were in the prompt.
-- **So "is the bridge used?" needs a removal test:** ablate Salzburg, and as controls ablate Vienna and other non-bridge words, at the same layers and positions. Then compare the drop in the model's confidence in "Austria". Neuronpedia's ablate works on one layer at a time, so its results there are only indicative.
-- **This may also apply to the famous spider → ants demo, and to J-PACT's HOT/Negative swap.** Neither paper rules out planting.
+- **Swapping out a strongly present, answer-related word plants the new word.** Swapping Salzburg, Vienna or Austria for Budapest all give "Hungary", even at a single early position. *Correction:* these weren't clean controls. Vienna and Austria are themselves tied to the answer (Austria *is* the answer), and a swap moves the removed word's whole amount to Budapest. In the spider demo, swapping many unrelated words for "ants" left the answer at 8, so swaps are not blindly planting.
+- **A clean control swap** removes a word that is about as strongly present as the bridge but off the geography path, e.g. "music" or "famous".
+- **Key observation:** swapping " birth" → " Budapest" (layers 18–63, user prompt only) changed the stated birthplace to **Vienna**, the wrong city, yet the answer stayed **Austria**.
+  - The country answer survives a wrong bridge. This suggests a direct shortcut, Mozart → Austria, that doesn't go through Salzburg at all.
+  - If so, the bridge isn't needed for such facts, and the paper's premise (the answer is computed through the bridge) fails for them.
+- **Design consequence: a shortcut check.** Ask the one-step question directly ("Wolfgang Amadeus Mozart was from the country of"). Split facts into shortcut-available vs not, or prefer people who aren't famous enough to be tied to a country directly. The TwoHopFact authors wrote a follow-up on exactly this (Yang et al. 2025, "latent multi-hop reasoning without exploiting shortcuts"). Silent Dissent cites it, and our guide found no shortcut filtering in its screening.
+- **For "is the bridge used?":** prefer removal (ablate) with matched controls, measured as the change in the model's confidence in the answer. Neuronpedia ablates one layer at a time, so results there are only indicative.
 
 ## Feasibility notes
 
