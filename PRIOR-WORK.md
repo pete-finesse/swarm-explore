@@ -10,4 +10,5 @@ The sprint report must declare everything listed here.
 - Nov 4–5: reference guides for both papers (`projects/jpact/PAPER.md`, `projects/silent-dissent/PAPER.md`), from reading only.
 
 ## Runs and code (add here as they happen)
-- none yet
+- Nov 5: Silent Dissent experiment harness (`projects/silent-dissent/harness/`), built before the sprint.
+- Nov 5: Runpod A40 pod started for the harness; any runs on it today are prior work.
