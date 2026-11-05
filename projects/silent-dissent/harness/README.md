@@ -38,6 +38,22 @@ The harness won't download anything unless you add `--allow-download`. Device: `
 - Qwen3.5's linear-attention layers fall back to slower PyTorch code (that's what the "falling back" warnings mean).
 - bf16 can give tied ranks; `dtype: float32` in the config avoids that, using ~18 GB of memory.
 
+## On the RunPod GPU
+
+Run these from this folder on the Mac:
+1. Set the SSH command RunPod shows: `export POD_SSH="ssh root@<ip> -p <port> -i ~/.ssh/id_ed25519"`.
+2. `./pod.sh push`
+   - copies the code and TwoHopFact to `/workspace`;
+   - runs `setup_pod.sh` there: uv, packages, the speed kernels and the model and lens downloads (into `/workspace/hf_cache`, so they survive a pod stop);
+   - then runs the tests and one real readout as a check.
+3. `./pod.sh run run1 batch --limit 200 --out results/run1` starts any `sdh` command in the background.
+4. `./pod.sh status run1` shows the GPU and whether jobs are running. "none: pod idle" means it's safe to stop the pod.
+5. `./pod.sh pull` copies the results to `../data/pod-results/` (git-ignored).
+
+After editing code here, `./pod.sh push --code` updates the pod without rerunning the setup.
+
+The pod's driver must be recent. The setup falls back to CUDA 12.8 / 12.6 builds if the driver is older than CUDA 13 needs.
+
 ## The experiments
 
 Put `uv run sdh --config qwen35_4b` before each command (or leave out `--config` to use `tiny`).

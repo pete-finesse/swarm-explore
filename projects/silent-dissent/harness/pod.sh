@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Drive the RunPod pod FROM THE MAC. Set the SSH command RunPod shows, once per shell:
+#   export POD_SSH="ssh root@1.2.3.4 -p 22033 -i ~/.ssh/id_ed25519"
+# then:
+#   ./pod.sh push            copy harness + authors' code + TwoHopFact to /workspace, run setup_pod.sh
+#   ./pod.sh push --code     copy the code only (after editing it here), no setup
+#   ./pod.sh run NAME CMD..  run `uv run sdh --config $POD_CONFIG CMD..` (default qwen35_4b) on the pod in the background,
+#                            log to /workspace/logs/NAME.log, results under harness/results/
+#   ./pod.sh status [NAME]   GPU use, running jobs, tail of a log
+#   ./pod.sh pull            copy pod results to ../data/pod-results/ (git-ignored)
+#   ./pod.sh ssh [CMD]       a shell (or one command) on the pod, environment loaded
+# Uses tar over ssh, so the pod needs no rsync.
+set -euo pipefail
+: "${POD_SSH:?set POD_SSH to the ssh command RunPod shows}"
+HERE=$(cd "$(dirname "$0")" && pwd)
+SD=$(dirname "$HERE")                      # projects/silent-dissent
+REMOTE=/workspace/swarm-explore/projects/silent-dissent
+read -r -a SSH <<< "$POD_SSH"
+SSH=("${SSH[@]/#\~/$HOME}" -o ServerAliveInterval=30)
+on_pod() { "${SSH[@]}" "$@"; }
+
+case "${1:-}" in
+  push)
+    echo "copying code and data to the pod..."
+    tar -C "$SD" -czf - --exclude='.venv' --exclude='.tiny_cache' --exclude='results' --exclude='*.egg-info' \
+        --exclude='__pycache__' --exclude='paper' --exclude='*.pdf' \
+        harness repos/silent-dissent data/twohopfact \
+      | on_pod "mkdir -p $REMOTE && tar -C $REMOTE -xzf -"
+    [[ "${2:-}" == "--code" ]] && { echo "code updated"; exit 0; }
+    on_pod "mkdir -p /workspace/logs && bash $REMOTE/harness/setup_pod.sh 2>&1 | tee /workspace/logs/setup.log" ;;
+  run)
+    name=${2:?job name}; shift 2
+    cmd="source /workspace/env.sh && nohup uv run sdh --config ${POD_CONFIG:-qwen35_4b} $(printf '%q ' "$@") > /workspace/logs/$name.log 2>&1 < /dev/null &"
+    on_pod "mkdir -p /workspace/logs && bash -c $(printf '%q' "$cmd")"
+    echo "started '$name'; ./pod.sh status $name" ;;
+  status)
+    on_pod "nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv,noheader;
+            echo jobs:; ps -eo pid,etime,args | grep '[s]dh --config' | grep -v 'bash -c' || echo '  none: pod idle';
+            ${2:+tail -n 15 /workspace/logs/$2.log}" ;;
+  pull)
+    mkdir -p "$SD/data/pod-results"
+    on_pod "tar -C $REMOTE/harness -czf - results" | tar -C "$SD/data/pod-results" -xzf -
+    on_pod "tar -C /workspace -czf - logs" | tar -C "$SD/data/pod-results" -xzf -
+    echo "copied to $SD/data/pod-results/" ;;
+  ssh)
+    shift
+    if [[ $# -gt 0 ]]; then on_pod "source /workspace/env.sh && $*"; else "${SSH[@]}" -t "source /workspace/env.sh; exec bash -l"; fi ;;
+  *) sed -n '2,14p' "$0"; exit 1 ;;
+esac
