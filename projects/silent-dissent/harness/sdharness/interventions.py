@@ -21,6 +21,7 @@ from __future__ import annotations
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 import torch
 
@@ -119,29 +120,44 @@ def applied(h, text: str, edits: list[Edit]):
         yield
 
 
+#: Ways an answer can start after the prompt. Chat models often bold it: after the prefill
+#: "...in the country of", Qwen3.5-4B writes " **" with p=0.96 and " Austria" with p=0.001.
+FORMATS = (" {}", " **{}")
+
+
 @torch.no_grad()
-def answer_probs(h, text: str, candidates: list[str], edits: list[Edit] | None = None, top: int = 5) -> dict:
-    """Next-token probabilities after the prompt for each candidate answer.
-    p_first: probability of the first piece of " <cand>"; p_full: of the whole word (all pieces,
-    teacher-forced). Also the model's top tokens. Edits apply at prompt positions only."""
+def answer_probs(h, text: str, candidates: list[str], edits: list[Edit] | None = None, top: int = 5,
+                 formats: tuple[str, ...] = FORMATS) -> dict:
+    """Probability that the model's next words are each candidate answer.
+    p_full:   P(" Austria") + P(" **Austria"): every piece teacher-forced, summed over `formats`
+    p_plain / p_bold: the two terms;  p_first, rank_first: the first piece of " Austria" alone
+    p_share:  p_full / the sum of p_full over the candidates (which candidate wins, among these)
+    Also the model's top next tokens. Edits apply at prompt positions only."""
     prompt = h.encode(text)
-    cands = [h.encode(" " + c.strip()) for c in candidates]
-    rows = [prompt + c for c in cands] or [prompt]
+    n = len(prompt)
+    seqs = [(c, f, h.encode(f.format(c.strip()))) for c in candidates for f in formats]
+    rows = [prompt + t for _, _, t in seqs] or [prompt]
     L = max(len(r) for r in rows)
     pad = h.tok.pad_token_id or 0
     ids = torch.tensor([r + [pad] * (L - len(r)) for r in rows], device=h.device)   # right padding
     mask = torch.tensor([[1] * len(r) + [0] * (L - len(r)) for r in rows], device=h.device)
     with applied(h, text, edits):
-        logits = h.model(input_ids=ids, attention_mask=mask).logits.float()
-    logp = logits.log_softmax(-1)
-    n = len(prompt)
+        logp = h.model(input_ids=ids, attention_mask=mask).logits.float().log_softmax(-1)
     first = logp[0, n - 1]
     out = {"top": [(h.tok.decode([int(t)]), float(first[t].exp())) for t in first.topk(top).indices]}
-    probs = {}
-    for i, (c, toks) in enumerate(zip(candidates, cands)):
+    probs = {c: {} for c in candidates}
+    for i, (c, f, toks) in enumerate(seqs):
         lp = sum(float(logp[i, n - 1 + j, t]) for j, t in enumerate(toks))
-        probs[c] = {"p_first": float(logp[i, n - 1, toks[0]].exp()), "p_full": float(torch.tensor(lp).exp()),
-                    "rank_first": int((logp[i, n - 1] > logp[i, n - 1, toks[0]]).sum())}
+        key = "p_plain" if f == " {}" else "p_bold" if f == " **{}" else f"p[{f}]"
+        probs[c][key] = float(np.exp(lp))
+        if f == formats[0]:
+            probs[c]["p_first"] = float(logp[i, n - 1, toks[0]].exp())
+            probs[c]["rank_first"] = int((logp[i, n - 1] > logp[i, n - 1, toks[0]]).sum())
+    for c in candidates:
+        probs[c]["p_full"] = sum(v for k, v in probs[c].items() if k.startswith("p_") and k not in ("p_first",))
+    tot = sum(v["p_full"] for v in probs.values()) or 1.0
+    for c in candidates:
+        probs[c]["p_share"] = probs[c]["p_full"] / tot
     out["cands"] = probs
     return out
 

@@ -33,7 +33,7 @@ def test_last_layer_is_model_output(h, mozart):
     """Both lenses at the final layer reproduce the model's own next-token ranks."""
     text = q_text(h, mozart)
     ro = readout(h, text, WORDS)
-    logits = h.model(input_ids=torch.tensor([h.encode(text)])).logits[0, -1]
+    logits = h.model(input_ids=torch.tensor([h.encode(text)], device=h.device)).logits[0, -1]
     toks = word_tokens(h, WORDS)
     for k, w in enumerate(WORDS):
         want = min(int((logits > logits[t]).sum()) for t in toks[w])
@@ -80,7 +80,7 @@ def test_ablate_zeroes_jlens_logit(h, mozart):
     edit = Edit("ablate", ["Salzburg"], [layer], "last")
     with applied(h, text, [edit]):
         hd = get_layers(h.model)[layer].register_forward_hook(lambda m, i, o: got.__setitem__("h", layer_output(o)))
-        h.model(input_ids=torch.tensor([h.encode(text)]))
+        h.model(input_ids=torch.tensor([h.encode(text)], device=h.device))
         hd.remove()
     logit = h.lenses["jlens"].logits(got["h"][0, -1:], layer)[0, t]
     assert abs(float(logit)) < 1e-3
@@ -90,13 +90,15 @@ def test_answer_probs_match_model(h, mozart):
     text = q_text(h, mozart)
     r = answer_probs(h, text, ["Austria", "Salzburg"])
     ids = h.encode(text)
-    logp = h.model(input_ids=torch.tensor([ids])).logits[0, -1].float().log_softmax(-1)
+    logp = h.model(input_ids=torch.tensor([ids], device=h.device)).logits[0, -1].float().log_softmax(-1)
     a = h.encode(" Austria")
     assert r["cands"]["Austria"]["p_first"] == pytest.approx(float(logp[a[0]].exp()), rel=1e-4)
     s = h.encode(" Salzburg")                                  # several pieces: product of their probs
-    lp = h.model(input_ids=torch.tensor([ids + s])).logits[0].float().log_softmax(-1)
+    lp = h.model(input_ids=torch.tensor([ids + s], device=h.device)).logits[0].float().log_softmax(-1)
     full = sum(float(lp[len(ids) - 1 + j, t]) for j, t in enumerate(s))
-    assert r["cands"]["Salzburg"]["p_full"] == pytest.approx(np.exp(full), rel=1e-3)
+    assert r["cands"]["Salzburg"]["p_plain"] == pytest.approx(np.exp(full), rel=1e-3)
+    c = r["cands"]["Austria"]
+    assert c["p_full"] == pytest.approx(c["p_plain"] + c["p_bold"])          # " Austria" or " **Austria"
 
 
 def test_edits_change_probs_and_generate(h, mozart):

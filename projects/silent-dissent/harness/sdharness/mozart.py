@@ -74,6 +74,7 @@ def run(h, out_dir: str | Path, peer: str = "France", layers: list[int] | None =
     # 3. interventions on prompt 1
     text, _ = C.build(h, fact, "q_alone")
     q = "from:Complete the statement"
+    mid = band[len(band) // 2]                 # steering at all band layers at once breaks the model
     runs = {
         "swap Salzburg->Budapest @last": [Edit("swap", ["Salzburg", "Budapest"], band, "last")],
         "swap Vienna->Budapest @last": [Edit("swap", ["Vienna", "Budapest"], band, "last")],
@@ -82,13 +83,17 @@ def run(h, out_dir: str | Path, peer: str = "France", layers: list[int] | None =
         "ablate Graz @question": [Edit("ablate", ["Graz"], band, q)],
         "ablate Vienna @question": [Edit("ablate", ["Vienna"], band, q)],
         "ablate Tokyo @question": [Edit("ablate", ["Tokyo"], band, q)],
-        f"steer Salzburg -{alpha} @question": [Edit("steer", ["Salzburg"], band, q, alpha=-alpha)],
-        f"steer Budapest +{alpha} @last": [Edit("steer", ["Budapest"], band, "last", alpha=alpha)],
+        f"steer Salzburg -{alpha} @question L{mid}": [Edit("steer", ["Salzburg"], [mid], q, alpha=-alpha)],
+        f"steer Budapest +{alpha} @last L{mid}": [Edit("steer", ["Budapest"], [mid], "last", alpha=alpha)],
     }
     iv = compare(h, text, CANDIDATES, runs)
     iv.to_csv(out / "interventions.csv", index=False)
-    say("\nInterventions on prompt 1 (p_full = probability of the whole word; d_ = change vs baseline):")
-    say(iv.pivot(index="run", columns="candidate", values="p_full").loc[list({"baseline": 0, **runs})]
-        .round(4).to_string())
+    say("\nInterventions on prompt 1. p_full = P(' Austria') + P(' **Austria'), whole word; "
+        "share = p_full among the three candidates:")
+    order = list({"baseline": 0, **runs})
+    tab = iv.pivot(index="run", columns="candidate", values="p_full").loc[order]
+    tab["share_Austria"] = iv[iv.candidate == "Austria"].set_index("run").p_share.loc[order]
+    tab["top_tokens"] = iv.drop_duplicates("run").set_index("run").top_tokens.loc[order]
+    say(tab.to_string(float_format=lambda x: f"{x:.3g}"))
     say(f"\nWrote {out}/")
     return {"summary": summ, "last": last, "replies": replies, "interventions": iv}
