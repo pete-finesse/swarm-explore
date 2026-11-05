@@ -98,10 +98,10 @@ def load(config: str | dict = "tiny", allow_download: bool = False, device: str 
     cfg = dict(read_config(config))
     m = cfg["model"]
     if m["name"] == "tiny":
-        from .tiny import build_tiny
+        from .tiny import build_tiny, tiny_device
 
-        model, tok, lens_path = build_tiny(**m.get("tiny", {}))
-        model = model.to(_pick_device(device or m.get("device", "cpu")))
+        dev = tiny_device(device or m.get("device", "cpu"))
+        model, tok, lens_path = build_tiny(**m.get("tiny", {}), device=dev)
         lenses = {"jlens": build_lens(model, "jlens", path=str(lens_path)), "logit": LogitLens(model)}
         return Harness(model, tok, lenses, cfg)
 

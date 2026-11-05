@@ -68,8 +68,16 @@ def build_model(vocab_size: int, n_layers: int = 4, d: int = 64, seed: int = 0):
     return mm.Qwen3_5ForCausalLM(cfg).eval()
 
 
-def build_tiny(n_layers: int = 4, seed: int = 0, rebuild: bool = False):
-    """(model, tokenizer, J-lens path), cached in harness/.tiny_cache."""
+def tiny_device(want: str | None = "cpu") -> str:
+    """CPU, except on a CUDA machine: once flash-linear-attention is installed, Qwen3.5's
+    linear-attention layers run Triton kernels, which need GPU tensors."""
+    import torch
+
+    return "cuda" if (want in (None, "cpu", "auto") and torch.cuda.is_available()) else (want or "cpu")
+
+
+def build_tiny(n_layers: int = 4, seed: int = 0, rebuild: bool = False, device: str = "cpu"):
+    """(model, tokenizer, J-lens path), cached in harness/.tiny_cache. The model is on `device`."""
     from transformers import AutoTokenizer
 
     from silent_dissent.jlens import fit
@@ -82,6 +90,7 @@ def build_tiny(n_layers: int = 4, seed: int = 0, rebuild: bool = False):
         tok.save_pretrained(out)
         model = build_model(len(tok), n_layers, seed=seed)
         model.save_pretrained(out)
+        model = model.to(device)
         text = " ".join(_corpus()[:6])
         prompts = [text[i : i + 400] for i in range(0, max(1, len(text) - 200), 150)]
         fit(model, tok, prompts, str(lens), dim_batch=16, max_seq_len=96, skip_first=2, checkpoint_every=0)
@@ -91,5 +100,5 @@ def build_tiny(n_layers: int = 4, seed: int = 0, rebuild: bool = False):
     tok.chat_template = TEMPLATE
     tok.sd_template_kwargs = {}
     tok.padding_side = "left"
-    model = Qwen3_5ForCausalLM.from_pretrained(out).eval()
+    model = Qwen3_5ForCausalLM.from_pretrained(out).eval().to(device)
     return model, tok, lens

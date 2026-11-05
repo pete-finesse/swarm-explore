@@ -22,12 +22,15 @@ on_pod() { "${SSH[@]}" "$@"; }
 case "${1:-}" in
   push)
     echo "copying code and data to the pod..."
-    tar -C "$SD" -czf - --exclude='.venv' --exclude='.tiny_cache' --exclude='results' --exclude='*.egg-info' \
+    COPYFILE_DISABLE=1 tar -C "$SD" --no-mac-metadata --no-xattrs -czf - --exclude='.venv' --exclude='.tiny_cache' --exclude='results' --exclude='*.egg-info' \
         --exclude='__pycache__' --exclude='paper' --exclude='*.pdf' \
         harness repos/silent-dissent data/twohopfact \
-      | on_pod "mkdir -p $REMOTE && tar -C $REMOTE -xzf -"
+      | on_pod "mkdir -p $REMOTE && tar -C $REMOTE --no-same-owner -xzf - && find $REMOTE -name '._*' -delete"
     [[ "${2:-}" == "--code" ]] && { echo "code updated"; exit 0; }
-    on_pod "mkdir -p /workspace/logs && bash $REMOTE/harness/setup_pod.sh 2>&1 | tee /workspace/logs/setup.log" ;;
+    # detached, so a dropped connection doesn't kill it; then follow its log (Ctrl-C stops following only)
+    on_pod "mkdir -p /workspace/logs; cd $REMOTE/harness; nohup bash setup_pod.sh > /workspace/logs/setup.log 2>&1 < /dev/null &"
+    sleep 2
+    on_pod "tail -n +1 --pid=\$(pgrep -of setup_pod.sh || echo 999999) -f /workspace/logs/setup.log" || true ;;
   run)
     name=${2:?job name}; shift 2
     cmd="source /workspace/env.sh && nohup uv run sdh --config ${POD_CONFIG:-qwen35_4b} $(printf '%q ' "$@") > /workspace/logs/$name.log 2>&1 < /dev/null &"
