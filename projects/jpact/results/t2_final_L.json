@@ -1,0 +1,23 @@
+{
+ "name": "t2_final_L",
+ "split_controls_vs_controls": {
+  "auroc": 0.9325396825396826,
+  "ci95": [
+   0.8541586538461539,
+   1.0
+  ]
+ },
+ "collusion_vs_split_controls": {
+  "auroc": 0.8472222222222222,
+  "ci95": [
+   0.727113005050505,
+   0.9380826652089407
+  ]
+ },
+ "top_pair_in_split_controls": {
+  "other two": 24,
+  "changed pair": 6,
+  "mixed": 1
+ },
+ "n_changed_rows": 62
+}

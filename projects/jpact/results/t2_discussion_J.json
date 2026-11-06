@@ -1,0 +1,23 @@
+{
+ "name": "t2_discussion_J",
+ "split_controls_vs_controls": {
+  "auroc": 0.9404761904761905,
+  "ci95": [
+   0.8958333333333334,
+   1.0
+  ]
+ },
+ "collusion_vs_split_controls": {
+  "auroc": 0.8472222222222222,
+  "ci95": [
+   0.7221527777777778,
+   0.9753577441077441
+  ]
+ },
+ "top_pair_in_split_controls": {
+  "mixed": 2,
+  "other two": 18,
+  "changed pair": 11
+ },
+ "n_changed_rows": 62
+}

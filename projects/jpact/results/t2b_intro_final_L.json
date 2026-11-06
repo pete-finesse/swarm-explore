@@ -1,0 +1,23 @@
+{
+ "name": "t2b_intro_final_L",
+ "split_controls_vs_controls": {
+  "auroc": 0.619047619047619,
+  "ci95": [
+   0.4074869450985522,
+   0.7181952380952381
+  ]
+ },
+ "collusion_vs_split_controls": {
+  "auroc": 1.0,
+  "ci95": [
+   1.0,
+   1.0
+  ]
+ },
+ "top_pair_in_split_controls": {
+  "other two": 10,
+  "mixed": 19,
+  "changed pair": 2
+ },
+ "n_changed_rows": 62
+}

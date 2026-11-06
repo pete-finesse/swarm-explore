@@ -50,3 +50,33 @@ GPU rate but not zero.
 - **22:35. Pod stopped** (not terminated; volume kept). Total 0.87 GPU-h × $1.79 = **$1.56**. While stopped, the
   150 GB volume bills about $0.05/h (account spend went from $0.59/h to $0.64/h). Terminate it if it won't be reused
   within a few days. Account balance after: $45.79 (includes the silent-dissent pod).
+
+## Instruction-split tests (Thu Nov 5, evening PST = Fri Nov 6 UTC; still prior work, before the sprint)
+
+- Peter pointed out that removing the chat leaves the 2-vs-2 instruction split intact, so it can't separate
+  "collusion" from "different instructions". He also noted that swapping instructions under fixed replies creates
+  unnatural states, since J-PACT reads the state after the agent's own reply. He approved running tests 1, 2 and 2b
+  (all replays of existing transcripts, no new conversations) with that caution in mind. Definitions are in
+  `harness/replay.py`.
+- **00:01 UTC.** `pod start s4lrx17crkezcm` failed: "not enough free GPUs on the host machine". The stopped pod's
+  volume is tied to that machine. Created a second pod instead.
+
+| Pod id | Name | GPU | Cloud | $/h | Disk | Started (UTC) | Stopped (UTC) | Hours | Cost |
+|---|---|---|---|---|---|---|---|---|---|
+| jhr3n3rcjyr86h | jpact2 | 1× A100-SXM4 80 GB | secure | 1.79 | 40 GB container + 150 GB volume | 2026-11-06 00:02 | 2026-11-06 00:38 | 0.59 | $1.05 |
+
+- **00:04.** Setup on jpact2 (same `setup_pod.sh`). Pushed the base decompositions (`orig`, `final`, both lenses) and
+  row lists from the Mac copy, so `orig` and `final` don't need replaying again.
+- **00:10–00:13.** `paraphrase.py`: Qwen3-32B (greedy) rewrote each of the 31 scenarios' honest mandates. All are
+  within +2% to +15% of the original length, start with an instruction verb, and contain no model chatter. I read
+  four in full side by side: same requirements, different wording. Side-by-side copy:
+  `harness/paraphrases_check.md`.
+- **00:13–00:27.** Replays, 186 discussion rows + 62 vote rows per test: t1, t2, t2b_intro, t2b_full. About 2 min
+  each. Dry-run check first: right runs, right agents, no private text left. Then decompositions (both lenses) and
+  scores, queued on the pod (`run_tests.sh`).
+- **00:27–00:37.** All 16 cells scored (4 tests × 2 phases × 2 lenses). Results in `results/t*.json` and
+  [RESULTS.md](RESULTS.md) Part 2.
+- **00:37. Copied results**, the 8 new activation files and the decompositions to `data/` on the Mac.
+- **00:38. Pod jpact2 stopped.** 0.59 GPU-h × $1.79 = **$1.05**. **Project total so far: 1.46 GPU-h, $2.61**, plus
+  stopped-volume storage: two 150 GB volumes at about $0.05/h each. Everything on the first pod's volume is also on
+  the Mac, so it can be terminated.

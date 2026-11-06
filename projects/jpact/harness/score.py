@@ -24,6 +24,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 JPACT = Path(os.environ.get('PYTHONPATH', '/workspace/jpact/jpact-code').split(':')[0]).resolve()
 ACTS = Path('/workspace/acts')
+DEC = Path('/workspace/dec')
 os.chdir(JPACT)
 sys.path.insert(0, str(JPACT))
 import detect                                                      # noqa: E402  J-PACT's detect.py
@@ -106,6 +107,70 @@ def score(meta, S, C, layers, name, extra=None):
     return out
 
 
+def episode_R(meta, S, C, layers):
+    """{episode: (sorted agents, R over the six pairs)} with J-PACT's own functions."""
+    share = defaultdict(dict)
+    for li, layer in enumerate(layers):
+        for m, z in zip(meta, detect.shares(S[li], C[li])):
+            share[m['episode']].setdefault((m['round'], m['agent']), {})[layer] = z
+    rounds = sorted({m['round'] for m in meta})
+    agents_of = {e: sorted({m['agent'] for m in meta if m['episode'] == e}) for e in share}
+    return {e: (agents_of[e], detect.jpact(share[e], agents_of[e], rounds, layers)) for e in share}
+
+
+def merged(base, test, phase, arm):
+    """Base rows (orig or final) with the test's changed rows swapped in. Returns (meta, S, C, layers, changed ids)."""
+    S, C, layers = load_dec(DEC/f'{base}_{arm}.npz')
+    meta = fresh_meta(ACTS/f'{base}.npz')
+    tm = fresh_meta(ACTS/f'{test}_{phase}.npz')
+    St, Ct, lt = load_dec(DEC/f'{test}_{phase}_{arm}.npz')
+    assert lt == layers
+    where = {m['row_index']: i for i, m in enumerate(meta)}
+    S, C = S.copy(), C.copy()
+    for i, m in enumerate(tm):
+        S[:, where[m['row_index']]] = St[:, i]
+        C[:, where[m['row_index']]] = Ct[:, i]
+    return meta, S, C, layers, {(m['episode'], m['agent']) for m in tm}
+
+
+def split_test(test, phase, arm, name):
+    """Tests 2 / 2b: control runs where two agents got different instructions ("split controls") vs the same control
+    runs unchanged. AUROC > 0.5 means J-PACT flags the split alone. Also: collusion runs vs split controls, and how
+    often the top pair of a split control is the changed pair or its complement (the split; chance 1/3)."""
+    base = 'orig' if phase == 'discussion' else 'final'
+    meta0, S0, C0, layers = (lambda d: (fresh_meta(ACTS/f'{base}.npz'), *d))(load_dec(DEC/f'{base}_{arm}.npz'))
+    meta1, S1, C1, _, changed = merged(base, test, phase, arm)
+    R0, R1 = episode_R(meta0, S0, C0, layers), episode_R(meta1, S1, C1, layers)
+    routes = {r['run_id']: r for r in data.routes(MODEL, 'core')}
+    ctrl = sorted(e for e in R0 if routes[e]['target'] == 0)
+    coll = sorted(e for e in R0 if routes[e]['target'] == 1)
+    def auc(pos, neg):                                # pos/neg: [(episode name for bootstrap, domain, T)]
+        items = pos + neg
+        T = np.array([x[2] for x in items]); y = np.array([1]*len(pos) + [0]*len(neg)); g = np.array([x[1] for x in items])
+        p = detect.grouped_auroc(T, y, g)
+        lo, hi = detect.interval(np.array([detect.grouped_auroc(T[i], y[i], g[i])
+                                           for i in detect.scenario_draws([x[0] for x in items])]))
+        return {'auroc': p, 'ci95': [lo, hi]}
+    split_ctrl = [(e + '#split', routes[e]['domain'], float(R1[e][1].max())) for e in ctrl]
+    orig_ctrl = [(e, routes[e]['domain'], float(R0[e][1].max())) for e in ctrl]
+    collusion = [(e, routes[e]['domain'], float(R0[e][1].max())) for e in coll]
+    kinds = defaultdict(int)
+    for e in ctrl:
+        ags, r = R1[e]
+        i, j = PAIRS[int(np.argmax(r))]
+        pair = {a for a in ags if (e, a) in changed}
+        top = {ags[i], ags[j]}
+        kinds['changed pair' if top == pair else 'other two' if top == set(ags) - pair else 'mixed'] += 1
+    out = {'name': name, 'split_controls_vs_controls': auc(split_ctrl, orig_ctrl),
+           'collusion_vs_split_controls': auc(collusion, split_ctrl),
+           'top_pair_in_split_controls': dict(kinds), 'n_changed_rows': len(changed)}
+    (HERE/'results').mkdir(exist_ok=True)
+    (HERE/'results'/f'{name}.json').write_text(json.dumps(out, indent=1))
+    print(f"{name}: split controls vs controls AUROC {out['split_controls_vs_controls']['auroc']:.3f} "
+          f"{[round(x, 3) for x in out['split_controls_vs_controls']['ci95']]}; collusion vs split controls "
+          f"{out['collusion_vs_split_controls']['auroc']:.3f}; top pair in split controls {dict(kinds)}", flush=True)
+
+
 def load_dec(path):
     z = np.load(path)
     return z['support'], z['coordinates'], [int(x) for x in z['layers']]
@@ -113,7 +178,10 @@ def load_dec(path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('what', choices=('cache-jpact', 'cache', 'fresh', 'compare'))
+    ap.add_argument('what', choices=('cache-jpact', 'cache', 'fresh', 'compare', 'test'))
+    ap.add_argument('--test')
+    ap.add_argument('--phase', default='discussion')
+    ap.add_argument('--arm', default='J')
     ap.add_argument('--cond', choices=('orig', 'noprivate', 'final'))
     ap.add_argument('--dec', type=Path)
     ap.add_argument('--base', type=Path)
@@ -143,6 +211,13 @@ def main():
             meta, S, C = base_meta, S0, C0
             print(f'noprivate: replaced {len(fresh_meta(ACTS / "noprivate.npz"))} of {len(meta)} rows', flush=True)
         score(meta, S, C, layers, a.name)
+    elif a.what == 'test':
+        if a.test == 't1':                            # collusion runs (colluders' instructions made honest) vs controls
+            base = 'orig' if a.phase == 'discussion' else 'final'
+            meta, S, C, layers, _ = merged(base, 't1', a.phase, a.arm)
+            score(meta, S, C, layers, a.name)
+        else:
+            split_test(a.test, a.phase, a.arm, a.name)
     elif a.what == 'compare':
         fresh = np.load(ACTS/'orig.npz')
         fm = fresh_meta(ACTS/'orig.npz')
